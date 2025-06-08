@@ -1,104 +1,89 @@
 const { XMLBuilder, XMLParser } = require('fast-xml-parser');
 const { encrypt, decrypt }      = require('../utils/encryption');
+const geoService                = require('./geoService');
 
-// Opciones builder / parser
-const builderOpts = {
-  ignoreAttributes : false,
-  format           : true,
-  suppressEmptyNode: true,
-};
+// opciones comunes
+const builderOpts = { ignoreAttributes: false, format: true, suppressEmptyNode: true };
+const parserOpts  = { ignoreAttributes: false, parseTagValue: true, trimValues: true };
 
-const parserOpts = {
-  ignoreAttributes : false,
-  parseTagValue    : true,
-  trimValues       : true,
-};
+function toXml(txt, delim = ';', keyHex)      { return _txtTo('xml', txt, delim, keyHex); }
+function toJson(txt, delim = ';', keyHex)     { return _txtTo('json', txt, delim, keyHex); }
+function fromXml(xml, delim = ';', keyHex)    { return _structuredToTxt('xml', xml, delim, keyHex); }
+function fromJson(json, delim = ';', keyHex)  { return _structuredToTxt('json', json, delim, keyHex); }
 
-/**
- * TXT ➜ XML
- * @param {string} txtContent  Contenido completo del .txt
- * @param {string} delimiter   Separador (p. ej. ';' o '|')
- * @param {string} keyHex      Clave AES-256 (64 chars hex)
- * @returns {string}           XML formateado
- */
-function toXml(txtContent, delimiter = ';', keyHex) {
+module.exports = { toXml, toJson, fromXml, fromJson };
+
+/* ──────────── Implementación ──────────── */
+
+function _assertKey(key) {
+  if (!key || key.length !== 64) throw new Error('La clave AES debe ser un hex de 32 bytes (64 caracteres)');
+}
+
+/* TXT  ➜  XML | JSON */
+function _txtTo(target, txt, delim, keyHex) {
   _assertKey(keyHex);
 
-  const clientesArr = txtContent
+  const clientes = txt
     .trim()
     .split('\n')
     .filter(Boolean)
-    .map(line => _parseLine(line, delimiter, keyHex));
+    .map(line => _parseLine(line, delim, keyHex));
 
-  const root = { clientes: { cliente: clientesArr } };
-  const builder = new XMLBuilder(builderOpts);
-
-  return builder.build(root);
-}
-
-/**
- * XML ➜ TXT
- * @param {string} xmlContent  XML de entrada
- * @param {string} delimiter   Separador deseado para la salida
- * @param {string} keyHex      Clave AES-256 con la que se cifró
- * @returns {string}           Texto delimitado
- */
-function fromXml(xmlContent, delimiter = ';', keyHex) {
-  _assertKey(keyHex);
-
-  const parser = new XMLParser(parserOpts);
-  const parsed = parser.parse(xmlContent);
-
-  const clientesArr = Array.isArray(parsed?.clientes?.cliente)
-    ? parsed.clientes.cliente
-    : [parsed.clientes.cliente];
-
-  return clientesArr
-    .map(cli => _formatRecord(cli, delimiter, keyHex))
-    .join('\n');
-}
-
-/* ─────────────────────────  Helpers internos  ────────────────────────── */
-function _assertKey(keyHex) {
-  if (!keyHex || keyHex.length !== 64) {
-    throw new Error('La clave AES debe ser un hex de 32 bytes (64 caracteres)');
+  if (target === 'xml') {
+    const builder = new XMLBuilder(builderOpts);
+    return builder.build({ clientes: { cliente: clientes } });
   }
+  // JSON
+  return JSON.stringify(clientes, null, 2);
 }
 
-function _parseLine(line, delimiter, keyHex) {
+/* XML | JSON  ➜  TXT */
+function _structuredToTxt(source, payload, delim, keyHex) {
+  _assertKey(keyHex);
+  let clientes;
+
+  if (source === 'xml') {
+    const parser = new XMLParser(parserOpts);
+    const parsed = parser.parse(payload);
+    clientes = Array.isArray(parsed?.clientes?.cliente) ? parsed.clientes.cliente
+                                                        : [parsed.clientes.cliente];
+  } else {
+    clientes = Array.isArray(payload) ? payload : JSON.parse(payload);
+  }
+
+  return clientes.map(obj => _recordToTxt(obj, delim, keyHex)).join('\n');
+}
+
+/* helpers */
+function _parseLine(line, delim, keyHex) {
   const [
-    documento,
-    nombres,
-    apellidos,
-    tarjeta,
-    tipo,
-    telefono,
-    poligonoRaw = '',
-  ] = line.split(delimiter).map(s => s.trim());
+    documento, nombres, apellidos,
+    tarjeta, tipo, telefono,
+    poligonoRaw = ''
+  ] = line.split(delim).map(s => s.trim());
 
   return {
     documento,
     nombres,
     apellidos,
-    tarjeta: encrypt(tarjeta, keyHex),   // ciframos nº de tarjeta
+    tarjeta : encrypt(tarjeta, keyHex),
     tipo,
     telefono,
-    poligono: poligonoRaw,              // GeoJSON se refinará luego
+    poligono: geoService.wktToGeoJson(poligonoRaw)
   };
 }
 
-function _formatRecord(cli, delimiter, keyHex) {
-  const tarjetaDescifrada = decrypt(cli.tarjeta, keyHex);
+function _recordToTxt(obj, delim, keyHex) {
+  const tarjetaPlano = decrypt(obj.tarjeta, keyHex);
+  const poligonoWkt  = geoService.geoJsonToWkt(obj.poligono);
 
   return [
-    cli.documento,
-    cli.nombres,
-    cli.apellidos,
-    tarjetaDescifrada,
-    cli.tipo,
-    cli.telefono,
-    cli.poligono || '',
-  ].join(delimiter);
+    obj.documento,
+    obj.nombres,
+    obj.apellidos,
+    tarjetaPlano,
+    obj.tipo,
+    obj.telefono,
+    poligonoWkt
+  ].join(delim);
 }
-
-module.exports = { toXml, fromXml };
