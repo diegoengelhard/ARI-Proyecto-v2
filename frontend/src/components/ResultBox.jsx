@@ -4,9 +4,10 @@ export default function ResultBox({ result }) {
       background:'#f4f4f4',
       padding:'1rem',
       overflowX:'auto',
-      minHeight:'150px'
+      minHeight:'160px',
+      border:'1px solid #ccc'
     }}>
-      {result || '⇠ Resultado aparecerá aquí'}
+      {result || '⇠ El resultado aparecerá aquí'}
     </pre>
   );
 }

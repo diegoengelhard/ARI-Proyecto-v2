@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api/conversion',   // prefijo común
+  baseURL: 'http://localhost:3000/api/conversion',
   headers: { 'Content-Type': 'application/json' }
 });
 
