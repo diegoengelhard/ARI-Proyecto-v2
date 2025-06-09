@@ -2,8 +2,6 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-const bodyParser = require('body-parser');
-
 var app = express();
 
 const cors = require('cors');
@@ -11,11 +9,6 @@ const cors = require('cors');
 const apiRouter = require('./routes/index');
 
 const errorHandler = require('./middlewares/errorMiddleware');
-
-app.use(errorHandler);
-
-app.use(bodyParser.json({limit: '50mb', extended: true}));
-app.use(bodyParser.urlencoded({limit: '50mb', extended: true}));
 
 app.use(cors());
 
@@ -26,5 +19,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use("/api", apiRouter);
+
+app.use(errorHandler);
 
 module.exports = app;
