@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { convert }   from '../api';
-import { toast } from 'react-toastify';
+// src/components/ConverterForm.jsx
+import { useState }   from 'react';
+import { convert }    from '../api';
+import { toast }      from 'react-toastify';
 
 const defaultTxt =
   '03110567-7;Jaime Roberto;Climaco Navarrete;2346570012456;GOLD;22779898;POLYGON ((-90.7695 17.8177, -90.7439 17.8178))';
 
-// relación modo ↔ endpoint real
 const endpointMap = {
   'txt-xml' : 'txt-to-xml',
   'txt-json': 'txt-to-json',
@@ -14,17 +14,13 @@ const endpointMap = {
 };
 
 export default function ConverterForm({ setResult }) {
-  const [mode,       setMode]    = useState('txt-xml');
-  const [content,    setContent] = useState(defaultTxt);
-  const [delimiter,  setDelim]   = useState(';');
-  const [key,        setKey]     = useState('');
+  const [mode,      setMode]    = useState('txt-xml');
+  const [content,   setContent] = useState(defaultTxt);   // entrada
+  const [resultRaw, setRaw]     = useState('');           // salida “real”
+  const [delimiter, setDelim]   = useState(';');
+  const [key,       setKey]     = useState('');
 
-  if (!key) {
-    toast.warn('Ingrese la clave AES-256 (64 hex).');
-    return;
-  }
-
-  /* --- carga de archivo --- */
+  /* cargar archivo */
   const handleFile = e => {
     const file = e.target.files[0];
     if (!file) return;
@@ -32,20 +28,18 @@ export default function ConverterForm({ setResult }) {
     reader.onload = ev => setContent(ev.target.result);
     reader.readAsText(file);
 
-    // auto-selecciona modo según extensión
     const ext = file.name.split('.').pop().toLowerCase();
-    if (ext === 'txt') setMode('txt-xml');
-    if (ext === 'xml') setMode('xml-txt');
+    if (ext === 'txt')  setMode('txt-xml');
+    if (ext === 'xml')  setMode('xml-txt');
     if (ext === 'json') setMode('json-txt');
   };
 
-  /* --- submit --- */
+  /* submit */
   const handleSubmit = async e => {
     e.preventDefault();
-    if (!key) return alert('Ingrese la clave AES-256 (64 hex).');
+    if (!key) { toast.warn('Ingrese la clave AES-256 (64 hex).'); return; }
 
     const payload = { delimiter, key };
-
     try {
       switch (mode) {
         case 'txt-xml':
@@ -54,37 +48,58 @@ export default function ConverterForm({ setResult }) {
         case 'xml-txt':
           payload.xml = content; break;
         case 'json-txt':
-          payload.json = JSON.parse(content); break;
+          try { payload.json = JSON.parse(content); }
+          catch { toast.error('JSON inválido'); return; }
+          break;
         default: return;
       }
 
       const data = await convert(endpointMap[mode], payload);
+
+      /* determinar valor real para preview & descarga */
+      const raw =
+        data.xml  ??                       // preferir xml
+        (data.json ? JSON.stringify(data.json, null, 2) : null) ??
+        data.txt  ??
+        '';
+
+      setRaw(raw);
       setResult(JSON.stringify(data, null, 2));
       toast.success('Conversión exitosa');
+
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
-      toast.error(`Error: ${msg}`);
+      setRaw('');
       setResult(msg);
+      toast.error(`Error: ${msg}`);
     }
   };
 
-  /* --- descarga del resultado --- */
+  /* descarga */
   const handleDownload = () => {
-    if (!content) return;
-    const blob = new Blob([content], { type: 'text/plain' });
+    if (!resultRaw) { toast.info('Nada que descargar'); return; }
+
+    /* elegir extensión según modo o contenido */
+    const ext = mode.endsWith('xml')
+                ? 'xml'
+                : mode.endsWith('json')
+                  ? 'json'
+                  : 'txt';
+
+    const blob = new Blob([resultRaw], { type: 'text/plain' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href = url;
-    a.download =
-      mode.endsWith('xml')  ? 'resultado.xml'  :
-      mode.endsWith('json') ? 'resultado.json' : 'resultado.txt';
+    a.download = `resultado.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
+  /* UI */
   return (
-    <form onSubmit={handleSubmit} style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
-      {/* ------- selector de modo ------- */}
+    <form onSubmit={handleSubmit}
+          style={{display:'flex',flexDirection:'column',gap:'1rem'}}>
+
       <label>
         Conversión:&nbsp;
         <select value={mode} onChange={e=>setMode(e.target.value)}>
@@ -95,11 +110,8 @@ export default function ConverterForm({ setResult }) {
         </select>
       </label>
 
-      {/* ------- file chooser ------- */}
-      <input type="file" accept=".txt,.xml,.json"
-             onChange={handleFile} />
+      <input type="file" accept=".txt,.xml,.json" onChange={handleFile} />
 
-      {/* ------- área editable / preview ------- */}
       <textarea
         rows={8}
         value={content}
@@ -107,7 +119,6 @@ export default function ConverterForm({ setResult }) {
         style={{fontFamily:'monospace'}}
       />
 
-      {/* ------- delimitador y clave ------- */}
       <div style={{display:'flex',gap:'1rem',alignItems:'center'}}>
         <label>
           Delimitador&nbsp;
@@ -119,7 +130,6 @@ export default function ConverterForm({ setResult }) {
         </label>
       </div>
 
-      {/* ------- acciones ------- */}
       <div style={{display:'flex',gap:'1rem'}}>
         <button type="submit">Convertir</button>
         <button type="button" onClick={handleDownload}>Descargar</button>

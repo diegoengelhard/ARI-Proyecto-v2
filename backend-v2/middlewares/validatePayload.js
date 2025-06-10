@@ -16,7 +16,7 @@ const validator = mode => (req, res, next) => {
       if (!delimiter)    return res.status(400).json({ error: 'delimiter required' });
 
       if (body.content.split(delimiter).length < 6) {
-        return res.status(400).json({ error: 'Formato TXT inválido' });
+        return res.status(400).json({ error: 'Formato TXT o delimitador inválido' });
       }
       break;
     }
