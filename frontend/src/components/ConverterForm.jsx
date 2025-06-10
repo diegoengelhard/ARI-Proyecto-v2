@@ -18,6 +18,11 @@ export default function ConverterForm({ setResult }) {
   const [delimiter,  setDelim]   = useState(';');
   const [key,        setKey]     = useState('');
 
+  if (!key) {
+    toast.warn('Ingrese la clave AES-256 (64 hex).');
+    return;
+  }
+
   /* --- carga de archivo --- */
   const handleFile = e => {
     const file = e.target.files[0];
@@ -55,7 +60,9 @@ export default function ConverterForm({ setResult }) {
       const data = await convert(endpointMap[mode], payload);
       setResult(JSON.stringify(data, null, 2));
     } catch (err) {
-      setResult(err.response?.data?.error || err.message);
+      const msg = err.response?.data?.error || err.message;
+      toast.error(`Error: ${msg}`);
+      setResult(msg);
     }
   };
 

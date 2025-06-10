@@ -1,6 +1,8 @@
 import { useState }    from 'react';
 import ConverterForm   from './components/ConverterForm';
 import ResultBox       from './components/ResultBox';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function App() {
   const [result,setResult] = useState('');
@@ -10,6 +12,7 @@ export default function App() {
       <h2>Conversor XML / JSON / TXT</h2>
       <ConverterForm setResult={setResult}/>
       <ResultBox result={result}/>
+      <ToastContainer position="bottom-right" />
     </div>
   );
 }
