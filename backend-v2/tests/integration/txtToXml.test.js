@@ -20,4 +20,11 @@ describe('POST /api/conversion/txt-to-xml', () => {
       .send({ delimiter: ';', key });
     expect(res.statusCode).toBe(400);
   });
+
+  it('400 - TXT enviado al endpoint xml-to-txt', async () => {
+    const res = await request(app)
+      .post('/api/conversion/xml-to-txt')
+      .send({ xml: 'linea;txt;equivocada', delimiter: ';', key });
+    expect(res.statusCode).toBe(400);
+  });
 });
