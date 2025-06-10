@@ -21,7 +21,7 @@ const validator = mode => (req, res, next) => {
       break;
     }
     case 'xml-txt': {
-      if (!body.xml) return res.status(400).json({ error: 'xml & key required' });
+      if (!body.xml) return res.status(400).json({ error: 'xml & key requerido' });
       const validationResult = XMLValidator.validate(body.xml); 
       if (validationResult !== true) {
         return res.status(400).json({ error: 'XML mal formado', details: validationResult.err });
@@ -29,7 +29,7 @@ const validator = mode => (req, res, next) => {
       break;
     }
     case 'json-txt': {
-      if (!body.json) return res.status(400).json({ error: 'json & key required' });
+      if (!body.json) return res.status(400).json({ error: 'json & key requerido' });
       try {
         if (typeof body.json !== 'object' || body.json === null) {
             throw new Error('Invalid JSON object');
