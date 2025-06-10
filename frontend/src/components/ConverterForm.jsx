@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { convert }   from '../api';
+import { toast } from 'react-toastify';
 
 const defaultTxt =
   '03110567-7;Jaime Roberto;Climaco Navarrete;2346570012456;GOLD;22779898;POLYGON ((-90.7695 17.8177, -90.7439 17.8178))';
@@ -59,6 +60,7 @@ export default function ConverterForm({ setResult }) {
 
       const data = await convert(endpointMap[mode], payload);
       setResult(JSON.stringify(data, null, 2));
+      toast.success('Conversión exitosa');
     } catch (err) {
       const msg = err.response?.data?.error || err.message;
       toast.error(`Error: ${msg}`);
