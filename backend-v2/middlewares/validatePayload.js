@@ -1,4 +1,4 @@
-const { XMLValidator } = require('fast-xml-parser'); // Import XMLValidator
+const { XMLValidator } = require('fast-xml-parser');
 
 const validator = mode => (req, res, next) => {
   const { body } = req;
@@ -14,7 +14,7 @@ const validator = mode => (req, res, next) => {
     case 'txt-json': {
       if (!body.content) return res.status(400).json({ error: 'content & key required' });
       if (!delimiter)    return res.status(400).json({ error: 'delimiter required' });
-      // validación sencilla: debe tener al menos 6 campos delimitados
+
       if (body.content.split(delimiter).length < 6) {
         return res.status(400).json({ error: 'Formato TXT inválido' });
       }
@@ -22,9 +22,8 @@ const validator = mode => (req, res, next) => {
     }
     case 'xml-txt': {
       if (!body.xml) return res.status(400).json({ error: 'xml & key required' });
-      const validationResult = XMLValidator.validate(body.xml); // Use XMLValidator.validate
+      const validationResult = XMLValidator.validate(body.xml); 
       if (validationResult !== true) {
-        // Added validation error details for easier debugging
         return res.status(400).json({ error: 'XML mal formado', details: validationResult.err });
       }
       break;
@@ -32,15 +31,9 @@ const validator = mode => (req, res, next) => {
     case 'json-txt': {
       if (!body.json) return res.status(400).json({ error: 'json & key required' });
       try {
-        // Ensure it's a valid JSON structure that can be stringified and parsed
-        // For example, if body.json is already an object from express.json() middleware
-        // this check is more about ensuring it's not undefined or a problematic type.
-        // If it was a string, JSON.parse would be needed first.
-        // Assuming body.json is already a JS object/array due to express.json()
         if (typeof body.json !== 'object' || body.json === null) {
             throw new Error('Invalid JSON object');
         }
-        // Attempt to stringify to catch potential circular references or other issues, though less common for typical API payloads
         JSON.stringify(body.json);
       }
       catch (e) {
