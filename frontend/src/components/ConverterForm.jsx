@@ -19,6 +19,7 @@ export default function ConverterForm({ setResult }) {
   const [resultRaw, setRaw]     = useState('');           // salida “real”
   const [delimiter, setDelim]   = useState(';');
   const [key,       setKey]     = useState('');
+  const [noErrors,       setNoErrors]     = useState(false);
 
   /* cargar archivo */
   const handleFile = e => {
@@ -65,6 +66,7 @@ export default function ConverterForm({ setResult }) {
 
       setRaw(raw);
       setResult(JSON.stringify(data, null, 2));
+      setNoErrors(true);
       toast.success('Conversión exitosa');
 
     } catch (err) {
@@ -93,7 +95,18 @@ export default function ConverterForm({ setResult }) {
     a.download = `resultado.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
+    resetValues();
   };
+
+  function resetValues() {
+    setMode('txt-xml');
+    setContent(defaultTxt);
+    setRaw('');
+    setDelim(';');
+    setKey('');
+    setNoErrors(false);
+    setResult('');
+  }
 
   /* UI */
   return (
@@ -132,7 +145,13 @@ export default function ConverterForm({ setResult }) {
 
       <div style={{display:'flex',gap:'1rem'}}>
         <button type="submit">Convertir</button>
-        <button type="button" onClick={handleDownload}>Descargar</button>
+        <button 
+          type="button" 
+          onClick={handleDownload}
+          disabled={!noErrors}
+        >
+          Descargar
+        </button>
       </div>
     </form>
   );
