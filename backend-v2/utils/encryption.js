@@ -1,7 +1,14 @@
 const { randomBytes, createCipheriv, createDecipheriv } = require('crypto');
 
-const ALGO   = 'aes-256-gcm'; // Modo de cifrado AES-256
-const IV_LEN = 12; // Longitud del IV = 12 bytes ≡ GCM estándar (96 bits)
+/**
+ * Módulo de cifrado AES-256-GCM
+ * Proporciona funciones para cifrar y descifrar texto usando AES-256-GCM.
+ * @var ALGO - Algoritmo de cifrado AES-256-GCM
+ * @var IV_LEN - Longitud del IV (vector de inicialización) = 12 bytes ≡ GCM estándar (96 bits)
+ * garaniza: 1) Unicidad de cada cifrado 2) Aleatoriedad inicial
+ */
+const ALGO   = 'aes-256-gcm';
+const IV_LEN = 12;
 
 /** Valida que la clave sea un hex de 32 bytes → 256 bits (64 caracteres). */
 function assertKey(keyHex) {
