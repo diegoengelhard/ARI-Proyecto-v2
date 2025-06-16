@@ -21,7 +21,7 @@ function assertKey(keyHex) {
  * Cifra un texto plano usando AES-256-GCM.
  *  @param {string} plain  texto en claro
  *  @param {string} keyHex clave AES-256 en hex
- *  @returns {string} iv:tag:cipher (todos en hex) 
+ *  @returns {string} payload cifrado en formato iv:tag:cipher 
 */
 function encrypt(plain, keyHex) {
   assertKey(keyHex); // Verifica que la clave sea válida
