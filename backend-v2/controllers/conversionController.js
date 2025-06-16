@@ -80,7 +80,7 @@ controller.txtToXml = async (req, res) => {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(l => lineToObj(l, delimiter, key));
+      .map(l => lineToObj(l, delimiter, key)); // Convertir cada línea de texto a objeto cliente
 
     const forXml = clientes.map(cli => ({
       ...cli,
@@ -107,7 +107,7 @@ controller.txtToJson = async (req, res) => {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(l => lineToObj(l, delimiter, key)); // lineToObj maneja punto ubicacion
+      .map(l => lineToObj(l, delimiter, key)); // Convertir cada línea de texto a objeto cliente
 
     // devolvemos el array directamente
     return res.json({ json: arr });
@@ -138,7 +138,8 @@ controller.xmlToTxt = async (req, res) => {
       return clienteObj;
     });
 
-    const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n');
+    const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n'); // Convertir cada objeto cliente a línea de texto
+
     return res.json({ txt });
   } catch (err) {
     return res.status(400).json({ error: err.message });
@@ -151,7 +152,8 @@ controller.jsonToTxt = async (req, res) => {
     assertKey(key);
 
     const arr = Array.isArray(json) ? json : jsonH.parse(json);
-    const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n');
+    const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n'); // Convertir cada objeto cliente a línea de texto
+    
     return res.json({ txt });
   } catch (err) {
     return res.status(400).json({ error: err.message });
