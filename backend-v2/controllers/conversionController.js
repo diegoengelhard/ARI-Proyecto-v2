@@ -7,50 +7,68 @@ const controller = {};
 
 const DELIM_DEF = ';';
 
-/** Convierte una línea TXT en un objeto cliente */
+/**
+ Convierte una línea de texto a un objeto cliente
+  @param {string} line - línea de texto con campos separados por delimitador
+  @param {string} delim - delimitador para dividir los campos
+  @param {string} keyHex - clave AES-256 en formato hexadecimal para cifrar la tarjeta
+  @returns {Object} objeto cliente con campos: documento, nombres, apellidos, tarjeta, tipo, telefono, poligono, ubicacion
+*/
 function lineToObj(line, delim, keyHex) {
-  const fields = line.split(delim).map(s => s.trim());
-  const [doc, nom, ape, card, tipo, tel] = fields;
+  const fields = line.split(delim).map(s => s.trim()); // Divide la línea por el delimitador y elimina espacios
+  const [doc, nom, ape, card, tipo, tel] = fields; // Extrae los campos: documento, nombres, apellidos, tarjeta, tipo, teléfono
   const polyRaw = fields[6] || '';
-  const pointRaw = fields[7]; // Will be undefined if only 7 fields
+  const pointRaw = fields[7];
 
+  // Construye el objeto cliente
   const clienteObj = {
     documento: doc,
     nombres:   nom,
     apellidos: ape,
-    tarjeta:   encrypt(card, keyHex),
+    tarjeta:   encrypt(card, keyHex), // Cifra la tarjeta con la clave proporcionada
     tipo,
     telefono:  tel,
-    poligono:  wktToGeoJSON(polyRaw) // Existing: can be object or original string
+    poligono:  wktToGeoJSON(polyRaw) // Convierte el WKT de polígono a GeoJSON
   };
 
-  if (pointRaw !== undefined) { // If 8th field was present
-    clienteObj.ubicacion = wktPointToGeoJSON(pointRaw); // Can be object or original string
+  // Revisa si existe el campo de ubicación
+  if (pointRaw !== undefined) {
+    // Convertir el WKT de punto a GeoJSON
+    clienteObj.ubicacion = wktPointToGeoJSON(pointRaw);
   }
 
-  return clienteObj;
+  return clienteObj; // Devuelve el objeto cliente con los campos procesados
 }
 
-/** Convierte el objeto cliente en la línea TXT original */
+/** 
+ Convierte el objeto cliente a TXT 
+  @param {Object} o - objeto cliente con campos: documento, nombres, apellidos, tarjeta, tipo, telefono, poligono, ubicacion
+  @param {string} delim - delimitador para unir los campos
+  @param {string} keyHex - clave AES-256 en formato hexadecimal para descifrar la tarjeta
+  @returns {string} línea de texto con los campos del objeto cliente unidos por el delimitador
+*/
 function objToLine(o, delim, keyHex) {
+  // Reconstruye el TXT a partir de los campos del objeto cliente
   const parts = [
     o.documento,
     o.nombres,
     o.apellidos,
-    decrypt(o.tarjeta, keyHex),
+    decrypt(o.tarjeta, keyHex), // Descifra la tarjeta con la clave proporcionada
     o.tipo,
     o.telefono,
-    geoJSONToWkt(o.poligono)
+    geoJSONToWkt(o.poligono) // Convierte el polígono GeoJSON a WKT
   ];
 
-  // Add Point WKT if ubicacion exists and is a valid GeoJSON Point producing non-empty WKT
+  // Si existe el campo de ubicación, convertirlo a WKT
   if (o.ubicacion) {
+    // Valida que o.ubicacion sea un objeto GeoJSON Point valido
     const pointWkt = geoJSONPointToWkt(o.ubicacion);
-    if (pointWkt) { // geoJSONPointToWkt returns '' for invalid/empty
+    if (pointWkt) {
       parts.push(pointWkt);
     }
   }
-  return parts.join(delim);
+
+  return parts.join(delim); // Retorna TXT uniendo los campos con el delimitador
 }
 
 controller.txtToXml = async (req, res) => {
@@ -64,15 +82,13 @@ controller.txtToXml = async (req, res) => {
       .filter(Boolean)
       .map(l => lineToObj(l, delimiter, key));
 
-    // 2) serializar polígono y ubicacion como JSON string para XML
     const forXml = clientes.map(cli => ({
       ...cli,
-      // Stringify, handles if cli.poligono/cli.ubicacion is object, string, or undefined
       poligono: jsonH.stringify(cli.poligono, true),
       ubicacion: jsonH.stringify(cli.ubicacion, true)
     }));
 
-    // 3) construir XML
+    // construir XML
     const xml = xmlH.build({ clientes: { cliente: forXml } });
 
     return res.json({ xml });
@@ -91,7 +107,7 @@ controller.txtToJson = async (req, res) => {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(l => lineToObj(l, delimiter, key)); // lineToObj now handles ubicacion
+      .map(l => lineToObj(l, delimiter, key)); // lineToObj maneja punto ubicacion
 
     // devolvemos el array directamente
     return res.json({ json: arr });
@@ -106,7 +122,7 @@ controller.xmlToTxt = async (req, res) => {
     assertKey(key);
 
     const parsed = xmlH.parse(xml);
-    const rawClientes = [].concat(parsed.clientes?.cliente || []); // Robust way to get clients array
+    const rawClientes = [].concat(parsed.clientes?.cliente || []); // Obtiene los datos del XML, asegurando que sea un array
 
     // si poligono o ubicacion es string JSON, parsearlo
     const arr = rawClientes.map(o => {
@@ -115,7 +131,7 @@ controller.xmlToTxt = async (req, res) => {
         try { clienteObj.poligono = jsonH.parse(clienteObj.poligono); }
         catch (_) { /* dejar tal cual */ }
       }
-      if (typeof clienteObj.ubicacion === 'string') { // Add this for ubicacion
+      if (typeof clienteObj.ubicacion === 'string') {
         try { clienteObj.ubicacion = jsonH.parse(clienteObj.ubicacion); }
         catch (_) { /* dejar tal cual */ }
       }
@@ -135,7 +151,6 @@ controller.jsonToTxt = async (req, res) => {
     assertKey(key);
 
     const arr = Array.isArray(json) ? json : jsonH.parse(json);
-    // objToLine now handles ubicacion if present in the JSON objects
     const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n');
     return res.json({ txt });
   } catch (err) {
