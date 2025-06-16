@@ -12,16 +12,17 @@ const validator = mode => (req, res, next) => {
   switch (mode) {
     case 'txt-xml':
     case 'txt-json': {
-      if (!body.content) return res.status(400).json({ error: 'content & key required' });
-      if (!delimiter)    return res.status(400).json({ error: 'delimiter required' });
+      if (!body.content) return res.status(400).json({ error: 'Error: Contenido & llave requerida' });
+      if (!delimiter)    return res.status(400).json({ error: 'Error: Delimitador requerido' });
 
-      if (body.content.split(delimiter).length < 6) {
+      const partsCount = body.content.split(delimiter).length;
+      if (partsCount < 7 || partsCount > 8) {
         return res.status(400).json({ error: 'Formato TXT o delimitador inválido' });
       }
       break;
     }
     case 'xml-txt': {
-      if (!body.xml) return res.status(400).json({ error: 'xml & key requerido' });
+      if (!body.xml) return res.status(400).json({ error: 'Error: xml & llave requerido' });
       const validationResult = XMLValidator.validate(body.xml); 
       if (validationResult !== true) {
         return res.status(400).json({ error: 'XML mal formado', details: validationResult.err });
@@ -29,7 +30,7 @@ const validator = mode => (req, res, next) => {
       break;
     }
     case 'json-txt': {
-      if (!body.json) return res.status(400).json({ error: 'json & key requerido' });
+      if (!body.json) return res.status(400).json({ error: 'Error: json & key requerido' });
       try {
         if (typeof body.json !== 'object' || body.json === null) {
             throw new Error('Invalid JSON object');
@@ -37,12 +38,12 @@ const validator = mode => (req, res, next) => {
         JSON.stringify(body.json);
       }
       catch (e) {
-        return res.status(400).json({ error: 'JSON inválido', details: e.message });
+        return res.status(400).json({ error: 'Error: JSON inválido', details: e.message });
       }
       break;
     }
     default:
-      return res.status(400).json({ error: 'Modo de validación desconocido' });
+      return res.status(400).json({ error: 'Error: Modo de validación desconocido' });
   }
 
   next();

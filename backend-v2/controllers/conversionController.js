@@ -1,5 +1,5 @@
 const { encrypt, decrypt, assertKey } = require('../utils/encryption');
-const geo   = require('../utils/geoService');
+const { wktToGeoJSON, geoJSONToWkt, wktPointToGeoJSON, geoJSONPointToWkt } = require('../utils/geoService'); // Updated import
 const xmlH  = require('../utils/xmlService');
 const jsonH = require('../utils/jsonService');
 
@@ -9,51 +9,67 @@ const DELIM_DEF = ';';
 
 /** Convierte una línea TXT en un objeto cliente */
 function lineToObj(line, delim, keyHex) {
-  const [doc, nom, ape, card, tipo, tel, polyRaw = ''] =
-    line.split(delim).map(s => s.trim());
+  const fields = line.split(delim).map(s => s.trim());
+  const [doc, nom, ape, card, tipo, tel] = fields;
+  const polyRaw = fields[6] || '';
+  const pointRaw = fields[7]; // Will be undefined if only 7 fields
 
-  return {
+  const clienteObj = {
     documento: doc,
     nombres:   nom,
     apellidos: ape,
     tarjeta:   encrypt(card, keyHex),
     tipo,
     telefono:  tel,
-    poligono:  geo.wktToGeoJSON(polyRaw)
+    poligono:  wktToGeoJSON(polyRaw) // Existing: can be object or original string
   };
+
+  if (pointRaw !== undefined) { // If 8th field was present
+    clienteObj.ubicacion = wktPointToGeoJSON(pointRaw); // Can be object or original string
+  }
+
+  return clienteObj;
 }
 
 /** Convierte el objeto cliente en la línea TXT original */
 function objToLine(o, delim, keyHex) {
-  return [
+  const parts = [
     o.documento,
     o.nombres,
     o.apellidos,
     decrypt(o.tarjeta, keyHex),
     o.tipo,
     o.telefono,
-    geo.geoJSONToWkt(o.poligono)
-  ].join(delim);
+    geoJSONToWkt(o.poligono)
+  ];
+
+  // Add Point WKT if ubicacion exists and is a valid GeoJSON Point producing non-empty WKT
+  if (o.ubicacion) {
+    const pointWkt = geoJSONPointToWkt(o.ubicacion);
+    if (pointWkt) { // geoJSONPointToWkt returns '' for invalid/empty
+      parts.push(pointWkt);
+    }
+  }
+  return parts.join(delim);
 }
 
 controller.txtToXml = async (req, res) => {
   try {
     const { content, delimiter = DELIM_DEF, key } = req.body;
-    if (!content || !key) 
-      return res.status(400).json({ error: 'content & key required' });
     assertKey(key);
 
-    // 1) de texto a objetos
     const clientes = content
       .trim()
       .split('\n')
       .filter(Boolean)
       .map(l => lineToObj(l, delimiter, key));
 
-    // 2) serializar polígono como JSON string para XML
+    // 2) serializar polígono y ubicacion como JSON string para XML
     const forXml = clientes.map(cli => ({
       ...cli,
-      poligono: jsonH.stringify(cli.poligono, true)
+      // Stringify, handles if cli.poligono/cli.ubicacion is object, string, or undefined
+      poligono: jsonH.stringify(cli.poligono, true),
+      ubicacion: jsonH.stringify(cli.ubicacion, true)
     }));
 
     // 3) construir XML
@@ -68,8 +84,6 @@ controller.txtToXml = async (req, res) => {
 controller.txtToJson = async (req, res) => {
   try {
     const { content, delimiter = DELIM_DEF, key } = req.body;
-    if (!content || !key) 
-      return res.status(400).json({ error: 'content & key required' });
     assertKey(key);
 
     // de texto a array de objetos
@@ -77,7 +91,7 @@ controller.txtToJson = async (req, res) => {
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map(l => lineToObj(l, delimiter, key));
+      .map(l => lineToObj(l, delimiter, key)); // lineToObj now handles ubicacion
 
     // devolvemos el array directamente
     return res.json({ json: arr });
@@ -89,21 +103,23 @@ controller.txtToJson = async (req, res) => {
 controller.xmlToTxt = async (req, res) => {
   try {
     const { xml, delimiter = DELIM_DEF, key } = req.body;
-    if (!xml || !key) 
-      return res.status(400).json({ error: 'xml & key required' });
     assertKey(key);
 
-    // parsear XML a JS
     const parsed = xmlH.parse(xml);
-    const raw = [].concat(parsed.clientes?.cliente || []);
+    const rawClientes = [].concat(parsed.clientes?.cliente || []); // Robust way to get clients array
 
-    // si poligono es string JSON, parsearlo
-    const arr = raw.map(o => {
-      if (typeof o.poligono === 'string') {
-        try { o.poligono = jsonH.parse(o.poligono); }
+    // si poligono o ubicacion es string JSON, parsearlo
+    const arr = rawClientes.map(o => {
+      const clienteObj = { ...o };
+      if (typeof clienteObj.poligono === 'string') {
+        try { clienteObj.poligono = jsonH.parse(clienteObj.poligono); }
         catch (_) { /* dejar tal cual */ }
       }
-      return o;
+      if (typeof clienteObj.ubicacion === 'string') { // Add this for ubicacion
+        try { clienteObj.ubicacion = jsonH.parse(clienteObj.ubicacion); }
+        catch (_) { /* dejar tal cual */ }
+      }
+      return clienteObj;
     });
 
     const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n');
@@ -116,11 +132,10 @@ controller.xmlToTxt = async (req, res) => {
 controller.jsonToTxt = async (req, res) => {
   try {
     const { json, delimiter = DELIM_DEF, key } = req.body;
-    if (!json || !key) 
-      return res.status(400).json({ error: 'json & key required' });
     assertKey(key);
 
     const arr = Array.isArray(json) ? json : jsonH.parse(json);
+    // objToLine now handles ubicacion if present in the JSON objects
     const txt = arr.map(o => objToLine(o, delimiter, key)).join('\n');
     return res.json({ txt });
   } catch (err) {

@@ -16,4 +16,29 @@ function geoJSONToWkt(geo) {
   return `POLYGON ((${pairs}))`;
 }
 
-module.exports = { wktToGeoJSON, geoJSONToWkt };
+function wktPointToGeoJSON(wktPoint = '') {
+  if (typeof wktPoint !== 'string' || !wktPoint.toUpperCase().startsWith('POINT')) {
+    return wktPoint; // Return as is if not a POINT string
+  }
+  const coordMatch = wktPoint.match(/POINT\s*\(\s*([+-]?\d*\.?\d+)\s+([+-]?\d*\.?\d+)\s*\)/i);
+  if (coordMatch && coordMatch.length === 3) {
+    const lng = parseFloat(coordMatch[1]);
+    const lat = parseFloat(coordMatch[2]);
+    if (!isNaN(lng) && !isNaN(lat)) {
+      return { type: 'Point', coordinates: [lng, lat] };
+    }
+  }
+  return wktPoint; // Return original if parsing failed
+}
+
+function geoJSONPointToWkt(geoPoint) {
+  if (geoPoint && geoPoint.type === 'Point' && Array.isArray(geoPoint.coordinates) && geoPoint.coordinates.length === 2) {
+    const [lng, lat] = geoPoint.coordinates;
+    if (typeof lng === 'number' && typeof lat === 'number' && !isNaN(lng) && !isNaN(lat)) {
+      return `POINT (${lng} ${lat})`;
+    }
+  }
+  return ''; // Return empty string if not a valid GeoJSON Point
+}
+
+module.exports = { wktToGeoJSON, geoJSONToWkt, wktPointToGeoJSON, geoJSONPointToWkt };
